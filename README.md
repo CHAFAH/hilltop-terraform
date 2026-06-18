@@ -4,18 +4,170 @@
 
 ## Table of Contents
 
-1. [What is Terraform](#what-is-terraform)
-2. [History](#history)
-3. [What Terraform Does](#what-terraform-does)
-4. [Alternatives](#alternatives)
-5. [Installation](#installation)
-6. [AWS CLI Installation](#aws-cli-installation)
-7. [Terraform Setup with AWS](#terraform-setup-with-aws)
-8. [Terraform Commands](#terraform-commands)
-9. [Terraform Keywords](#terraform-keywords)
-10. [Data Types](#data-types)
-11. [Functions](#functions)
-12. [Terraform Providers](#terraform-providers)
+1. [Introduction to AWS](#introduction-to-aws)
+2. [What is Terraform](#what-is-terraform)
+3. [History](#history)
+4. [What Terraform Does](#what-terraform-does)
+5. [Alternatives](#alternatives)
+6. [Installation](#installation)
+7. [AWS CLI Installation](#aws-cli-installation)
+8. [Terraform Setup with AWS](#terraform-setup-with-aws)
+9. [Terraform Commands](#terraform-commands)
+10. [Terraform Keywords](#terraform-keywords)
+11. [Data Types](#data-types)
+12. [Functions](#functions)
+13. [Terraform Providers](#terraform-providers)
+
+---
+
+## Introduction to AWS
+
+Amazon Web Services (AWS) is the world's largest cloud computing platform, offering 200+ services from data centers globally.
+
+### What is Cloud Computing?
+
+Instead of buying and maintaining physical servers, you rent compute, storage, and networking from AWS on-demand. You pay only for what you use.
+
+| Traditional (On-Premises) | Cloud (AWS) |
+|--------------------------|-------------|
+| Buy hardware upfront | Pay-as-you-go |
+| Months to provision | Minutes to provision |
+| Fixed capacity | Scale up/down instantly |
+| You manage everything | AWS manages hardware |
+| Single location | Available globally |
+
+### AWS Global Infrastructure
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                        AWS GLOBAL INFRASTRUCTURE                         │
+│                                                                         │
+│  ┌─────────────────────────────────────────────────────────────────┐   │
+│  │                    REGION (e.g., us-east-1)                      │   │
+│  │                    A geographic area                             │   │
+│  │                                                                 │   │
+│  │  ┌───────────────┐  ┌───────────────┐  ┌───────────────┐      │   │
+│  │  │     AZ-1      │  │     AZ-2      │  │     AZ-3      │      │   │
+│  │  │  us-east-1a   │  │  us-east-1b   │  │  us-east-1c   │      │   │
+│  │  │               │  │               │  │               │      │   │
+│  │  │ ┌───────────┐ │  │ ┌───────────┐ │  │ ┌───────────┐ │      │   │
+│  │  │ │Data Center│ │  │ │Data Center│ │  │ │Data Center│ │      │   │
+│  │  │ │Data Center│ │  │ │Data Center│ │  │ │Data Center│ │      │   │
+│  │  │ └───────────┘ │  │ └───────────┘ │  │ └───────────┘ │      │   │
+│  │  └───────────────┘  └───────────────┘  └───────────────┘      │   │
+│  │                                                                 │   │
+│  └─────────────────────────────────────────────────────────────────┘   │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### Key Concepts
+
+| Concept | Definition | Example |
+|---------|------------|---------|
+| **Region** | A geographic area with multiple data centers | `us-east-1` (N. Virginia), `eu-west-1` (Ireland) |
+| **Availability Zone (AZ)** | One or more isolated data centers within a region | `us-east-1a`, `us-east-1b`, `us-east-1c` |
+| **Edge Location** | CDN endpoint for caching content close to users | CloudFront PoPs worldwide |
+
+### Regions
+
+AWS has 30+ regions worldwide. Each region is completely independent.
+
+**How to choose a region:**
+- **Compliance** — Data residency requirements (e.g., EU data stays in EU)
+- **Latency** — Pick the region closest to your users
+- **Services** — Not all services are available in all regions
+- **Cost** — Pricing varies by region (us-east-1 is usually cheapest)
+
+**Common regions:**
+
+| Region Code | Location | Common Use |
+|-------------|----------|------------|
+| `us-east-1` | N. Virginia | Default, cheapest, most services |
+| `us-west-2` | Oregon | West coast US |
+| `eu-west-1` | Ireland | Europe |
+| `eu-central-1` | Frankfurt | Europe (GDPR) |
+| `ap-southeast-1` | Singapore | Asia Pacific |
+
+### Availability Zones (AZs)
+
+Each region has 2-6 AZs. AZs are:
+- Physically separate data centers
+- Connected via low-latency private fiber
+- Isolated from failures in other AZs
+- Used for high availability (deploy across multiple AZs)
+
+**Example:** If `us-east-1a` goes down, your app in `us-east-1b` keeps running.
+
+### AWS Architecture Best Practice
+
+```
+┌─────────────────── Region: us-east-1 ───────────────────┐
+│                                                          │
+│  ┌──────── AZ: us-east-1a ────────┐  ┌──── us-east-1b ────┐  │
+│  │                                │  │                     │  │
+│  │  ┌────────────────────────┐   │  │  ┌───────────────┐  │  │
+│  │  │    Public Subnet       │   │  │  │ Public Subnet │  │  │
+│  │  │  ┌──────┐ ┌────────┐  │   │  │  │  ┌──────┐     │  │  │
+│  │  │  │ EC2  │ │  NAT   │  │   │  │  │  │ EC2  │     │  │  │
+│  │  │  └──────┘ └────────┘  │   │  │  │  └──────┘     │  │  │
+│  │  └────────────────────────┘   │  │  └───────────────┘  │  │
+│  │  ┌────────────────────────┐   │  │  ┌───────────────┐  │  │
+│  │  │    Private Subnet      │   │  │  │Private Subnet │  │  │
+│  │  │  ┌──────┐ ┌──────┐    │   │  │  │  ┌──────┐     │  │  │
+│  │  │  │ RDS  │ │ App  │    │   │  │  │  │ RDS  │     │  │  │
+│  │  │  └──────┘ └──────┘    │   │  │  │  └──────┘     │  │  │
+│  │  └────────────────────────┘   │  │  └───────────────┘  │  │
+│  └────────────────────────────────┘  └──────────────────────┘  │
+│                                                          │
+└──────────────────────────────────────────────────────────┘
+```
+
+### Core AWS Services (for Terraform)
+
+| Service | Category | What It Does |
+|---------|----------|---------------|
+| **EC2** | Compute | Virtual servers |
+| **VPC** | Networking | Private network in the cloud |
+| **S3** | Storage | Object storage (files, backups, static sites) |
+| **RDS** | Database | Managed relational databases |
+| **EKS** | Containers | Managed Kubernetes |
+| **IAM** | Security | Users, roles, permissions |
+| **ELB** | Networking | Load balancers |
+| **Route 53** | DNS | Domain name management |
+| **CloudFront** | CDN | Content delivery network |
+| **DynamoDB** | Database | NoSQL key-value store |
+
+### VPC Architecture (What Terraform Provisions)
+
+```
+┌──────────────────── VPC (10.0.0.0/16) ────────────────────┐
+│                                                            │
+│  ┌─── Public Subnet (10.0.1.0/24) ───┐                   │
+│  │  Internet-facing resources         │                   │
+│  │  • Load Balancer                   │                   │
+│  │  • NAT Gateway                     │  ← Internet       │
+│  │  • Bastion Host                    │    Gateway        │
+│  └────────────────────────────────────┘                   │
+│                                                            │
+│  ┌─── Private Subnet (10.0.2.0/24) ───┐                  │
+│  │  Internal resources (no public IP) │                   │
+│  │  • Application servers (EC2)       │                   │
+│  │  • Databases (RDS)                 │                   │
+│  │  • EKS worker nodes                │                   │
+│  └────────────────────────────────────┘                   │
+│                                                            │
+└────────────────────────────────────────────────────────────┘
+```
+
+**Key VPC components:**
+- **VPC** — Your isolated private network
+- **Subnet** — A segment of the VPC in one AZ (public or private)
+- **Internet Gateway** — Connects VPC to the internet
+- **NAT Gateway** — Lets private subnets access internet (outbound only)
+- **Route Table** — Rules for where traffic goes
+- **Security Group** — Firewall rules for individual resources
+- **NACL** — Firewall rules at subnet level
 
 ---
 
