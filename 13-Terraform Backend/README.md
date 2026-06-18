@@ -1,49 +1,145 @@
-# Terraform Backend
+# 13 - Terraform Backend (S3 + DynamoDB Locking)
 
-In Terraform, the backend is the mechanism used to store and retrieve the Terraform state file. The state file contains information about the resources managed by Terraform, their current state, and their relationships.
+## What You Learn
+- Store Terraform state remotely in S3
+- Enable state locking with DynamoDB to prevent concurrent modifications
+- Types of backends and why remote state matters
 
-## Major reasons for setting up a Terraform Backend
+## Files
+- `backend.tf` — S3 backend configuration
+- `main.tf` — Resources to create
+- `variables.tf` — Input variables
+- `output.tf` — Outputs
 
-- **State management:** The backend allows you to store the Terraform state file remotely instead of storing it on your local machine. This enables collaboration with team members and facilitates concurrent use of Terraform across different environments.
+## Why Remote Backend?
 
-- **Consistency and synchronization:** By using a shared backend, different team members can work on the same infrastructure codebase and have consistent access to the latest state. This helps avoid conflicts and ensures that everyone is working with the most up-to-date information.
+By default, Terraform stores state locally (`terraform.tfstate`). Problems:
+- Lost if your laptop dies
+- Can't collaborate (two people running at once = corruption)
+- No locking = simultaneous applies can break infrastructure
 
-- **Remote locking and concurrency control:** The backend provides locking mechanisms to prevent concurrent modifications to the same infrastructure. This helps avoid conflicts and ensures that changes are applied in a controlled manner.
+**Remote backend (S3) solves this:**
+- State stored in S3 (durable, versioned)
+- DynamoDB provides locking (only one apply at a time)
+- Team can share state safely
 
-- **Auditability and history:** The backend allows you to retain a history of changes made to the infrastructure over time. This provides an audit trail and makes it easier to track and understand the evolution of the infrastructure.
+## Types of Backends
 
-- **Disaster recovery and backup:** Storing the state file in a durable backend provides protection against data loss. In case of accidental deletion or corruption of the local state file, you can easily recover the infrastructure by retrieving the state from the backend.
+| Backend | Storage | Locking | Use Case |
+|---------|---------|:-------:|----------|
+| `local` | Local disk | ❌ | Learning only |
+| `s3` | AWS S3 | ✅ (DynamoDB) | Most common for AWS |
+| `azurerm` | Azure Blob | ✅ | Azure projects |
+| `gcs` | Google Cloud Storage | ✅ | GCP projects |
+| `consul` | HashiCorp Consul | ✅ | Multi-cloud |
+| `remote` | Terraform Cloud | ✅ | HCP Terraform |
 
-## Example `backend.tf` configuration file
+## Setup Steps
 
-```sh
+### Step 1: Create S3 Bucket (manually or via CLI)
 
+```bash
+aws s3api create-bucket \
+  --bucket my-terraform-state-bucket \
+  --region us-east-1
+
+# Enable versioning (recommended)
+aws s3api put-bucket-versioning \
+  --bucket my-terraform-state-bucket \
+  --versioning-configuration Status=Enabled
+```
+
+### Step 2: Create DynamoDB Table for Locking
+
+```bash
+aws dynamodb create-table \
+  --table-name terraform-lock \
+  --attribute-definitions AttributeName=LockID,AttributeType=S \
+  --key-schema AttributeName=LockID,KeyType=HASH \
+  --billing-mode PAY_PER_REQUEST \
+  --region us-east-1
+```
+
+> **Important:** The DynamoDB table MUST have a primary key named `LockID` (type String). This is what Terraform uses for locking.
+
+### Step 3: Configure Backend (`backend.tf`)
+
+```hcl
 terraform {
   backend "s3" {
     bucket         = "my-terraform-state-bucket"
-    key            = "my-terraform-state-key"
-    region         = "us-west-2"
+    key            = "terraform/terraform.tfstate"
+    region         = "us-east-1"
+    dynamodb_table = "terraform-lock"
     encrypt        = true
-    dynamodb_table = "my-terraform-lock-table"
   }
 }
+```
+
+### Step 4: Initialize with Backend
+
+```bash
+terraform init
+```
+
+If migrating from local to S3, Terraform will ask:
+```
+Do you want to copy existing state to the new backend? (yes/no)
+```
+Type `yes`.
+
+### Step 5: Apply as normal
+
+```bash
+terraform plan
+terraform apply
+```
+
+State is now stored in S3 and locked via DynamoDB.
+
+## Verify
+
+```bash
+# Check state in S3
+aws s3 ls s3://my-terraform-state-bucket/terraform/
+
+# Check DynamoDB lock (should be empty when no apply is running)
+aws dynamodb scan --table-name terraform-lock
+```
+
+## How Locking Works
 
 ```
----
+User A runs: terraform apply
+  → Terraform writes lock to DynamoDB (LockID = state file path)
+  → Apply runs...
 
+User B runs: terraform apply (at the same time)
+  → Terraform checks DynamoDB → lock exists
+  → ERROR: "Error acquiring the state lock"
+  → User B must wait for User A to finish
 
-In this example:
+User A finishes:
+  → Lock removed from DynamoDB
+  → User B can now run
+```
 
-- The terraform block is used to specify the backend configuration.
+## Backend Configuration Options
 
-- The backend block with the type `"s3"` indicates that the Amazon S3 backend will be used.
+| Option | Purpose |
+|--------|---------|
+| `bucket` | S3 bucket name |
+| `key` | Path within bucket for state file |
+| `region` | AWS region of the bucket |
+| `dynamodb_table` | DynamoDB table for locking |
+| `encrypt` | Encrypt state at rest (SSE-S3) |
+| `profile` | AWS CLI profile to use |
 
-- The bucket attribute specifies the name of the S3 bucket where the Terraform state file will be stored. Replace `"my-terraform-state-bucket"` with the actual name of your bucket.
-
-- The key attribute specifies the path and filename of the Terraform state file within the S3 bucket. Replace `"my-terraform-state-key"` with the desired key name.
-
-- The region attribute specifies the AWS region where the S3 bucket is located. Replace `"us-west-2"` with the appropriate region.
-
-- The encrypt attribute indicates whether to enable `server-side encryption `for the state file. Set it to true for encryption or false to disable encryption.
-
-The `dynamodb_table` attribute specifies the name of the DynamoDB table to use for state locking. Replace `"my-terraform-lock-table"` with the actual name of your DynamoDB table.
+## Notes
+- Backend config cannot use variables — values must be hardcoded or passed via `-backend-config`
+- Always enable S3 versioning so you can recover previous state
+- One state file per environment (use different `key` paths)
+- Example multi-env keys:
+  - `dev/terraform.tfstate`
+  - `staging/terraform.tfstate`
+  - `prod/terraform.tfstate`

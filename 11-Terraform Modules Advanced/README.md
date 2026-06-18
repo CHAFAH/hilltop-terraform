@@ -1,47 +1,49 @@
-# Terraform Modules with multiple `.tfVars` files
+# 11 - Terraform Modules Advanced (Multi-Environment)
 
-## How to deploy (plan and apply) tf configuration files using `modules` with `.tfvars`
+## What You Learn
+- Use modules with different tfvars per environment
+- Deploy the same infrastructure to dev, test, and prod
+- Combine modules + tfvars for production-grade structure
 
-## To deploy in the `Dev` Environment
+## Structure
 
-- Run `Terraform plan` to see preview the resources to be created
-
-```sh
-terraform plan -var-file="./variable-values/dev.tfvars"
+```
+11-Terraform Modules Advanced/
+├── main.tf               ← Calls modules
+├── provider.tf           ← AWS provider
+├── variables.tf          ← Variable declarations
+├── modules/
+│   ├── ec2/              ← EC2 module
+│   ├── s3/              ← S3 module
+│   └── vpc/             ← VPC module
+└── variable-values/
+    ├── dev.tfvars        ← Dev environment values
+    ├── test.tfvars       ← Test environment values
+    └── prod.tfvars       ← Prod environment values
 ```
 
-- Run `Terraform apply` to create the resources
+## Steps
 
-```sh
-terraform apply -var-file="./variable-values/dev.tfvars"
+### 1. Deploy to dev:
+
+```bash
+terraform init
+terraform plan -var-file="variable-values/dev.tfvars"
+terraform apply -var-file="variable-values/dev.tfvars"
 ```
 
-## To deploy in the `Prod` Environment
+### 2. Deploy to prod:
 
-- Run `Terraform plan` to see preview the resources to be created
-
-```sh
-terraform plan -var-file="./variable-values/prod.tfvars"
+```bash
+terraform plan -var-file="variable-values/prod.tfvars"
+terraform apply -var-file="variable-values/prod.tfvars"
 ```
 
-- Run `Terraform apply` to create the resources
+### 3. Destroy:
 
-```sh
-terraform apply -var-file="./variable-values/prod.tfvars"
-```
----
-
-## To deploy in the `Test` Environment
-
-- Run `Terraform plan` to see preview the resources to be created
-
-```sh
-terraform plan -var-file="./variable-values/test.tfvars"
+```bash
+terraform destroy -var-file="variable-values/dev.tfvars"
 ```
 
-- Run `Terraform apply` to create the resources
-
-```sh
-terraform apply -var-file="./variable-values/test.tfvars"
-```
----
+## Key Concept
+Same code, different values per environment. The modules stay the same — only the `.tfvars` file changes.

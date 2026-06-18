@@ -1,68 +1,106 @@
-# Terraform variables with `.tfVars` files
+# 5 - Variables with tfvars Files
 
-In Terraform, `.tfvars` files are used to define variable values that can be easily input and managed separately from the main Terraform configuration files. These files allow you to specify custom values for variables without modifying the configuration code itself.
+## What You Learn
+- Use `.tfvars` files to set variable values per environment
+- Keep variable declarations separate from values
+- Deploy to different environments using the same code
 
-### Major use cases of Variables
--  Configuration separation: By using variables, you can separate the configuration data from the code. This separation makes it easier to manage and update variable values without modifying the underlying infrastructure code.
+## Files
+- `provider.tf` — AWS provider
+- `variables.tf` — Variable declarations (no defaults)
+- `main.tf` — Resource using variables
+- `variables/dev.tfvars` — Values for dev environment
 
-- Environment-specific values: Variables allow you to define different values for different environments or scenarios. By using .tfvars files, you can have separate files for each environment (e.g., dev.tfvars, prod.tfvars) and easily switch between them when deploying infrastructure to different environments.
+## Steps
 
-- Collaboration and sharing: Variables provide a standardized way to share and collaborate on Terraform configurations. By defining variables with clear names and default values, it becomes easier for team members to understand and contribute to the infrastructure codebase.
+### 1. `variables.tf` — Declare variables (no defaults):
 
-### Example `.tfvars` configuration usage
-
-```sh
-
+```hcl
 variable "aws_region" {
-  description = "The AWS region where resources will be provisioned."
+  description = "The AWS region"
   type        = string
-  default     = "us-west-2"
 }
 
 variable "instance_type" {
-  description = "The EC2 instance type for the web server."
+  description = "EC2 instance type"
   type        = string
-  default     = "t3.micro"
 }
 
-variable "environment" {
-  description = "The environment where resources are being deployed."
+variable "ami_id" {
+  description = "AMI ID"
   type        = string
-  default     = "dev"
 }
 
+variable "instance_count" {
+  description = "Number of instances"
+  type        = number
+  default     = 1
+}
+
+variable "instance_name" {
+  description = "Name tag for the instance"
+  type        = string
+}
 ```
----
-In this example:
 
-- The variable block defines three variables with different `names`, `descriptions`, and `data types`.
-- Each variable has a `default` value specified, which will be used if no other value is provided.
--  With this variable block, you can reference these variables throughout your Terraform configuration files, and their values can be overridden by providing new values in `.tfvars` files or as command-line flags when running Terraform commands.
+### 2. `variables/dev.tfvars` — Set values for dev:
 
-For example, you can create a dev.tfvars file with custom values for the variables:
-
-```sh
-
+```hcl
 aws_region     = "us-east-1"
 instance_type  = "t2.micro"
-environment    = "development"
-
+ami_id         = "ami-0c02fb55956c7d316"
+instance_count = 1
+instance_name  = "dev-server"
 ```
----
 
-By using .tfvars files, you can easily customize the variable values for different environments or scenarios without modifying the main Terraform configuration files.
+### 3. Create more tfvars for other environments:
 
-### How to deploy (plan and apply) tf configuration files with .tfvars
-
-To plan a `.tfvars` file located in a seperate directory
-
-```sh
-    terraform plan -var-file="./path/variables.tfvars"
+`variables/prod.tfvars`:
+```hcl
+aws_region     = "us-east-1"
+instance_type  = "t3.large"
+ami_id         = "ami-0c02fb55956c7d316"
+instance_count = 3
+instance_name  = "prod-server"
 ```
----
 
-Here's is an example
+### 4. `main.tf` — Use the variables:
 
-```sh
-    terraform plan -var-file="./path/variables.tfvars"
+```hcl
+resource "aws_instance" "prod-instance" {
+  ami           = var.ami_id
+  instance_type = var.instance_type
+  count         = var.instance_count
+  tags = {
+    Name = var.instance_name
+  }
+}
 ```
+
+### 5. Run with specific tfvars file:
+
+```bash
+terraform init
+
+# Deploy to dev
+terraform plan -var-file="variables/dev.tfvars"
+terraform apply -var-file="variables/dev.tfvars"
+
+# Deploy to prod
+terraform plan -var-file="variables/prod.tfvars"
+terraform apply -var-file="variables/prod.tfvars"
+
+# Destroy
+terraform destroy -var-file="variables/dev.tfvars"
+```
+
+## Why Use tfvars
+- Same Terraform code for all environments
+- Environment-specific values in separate files
+- Easy to add new environments (just create a new `.tfvars`)
+- Never edit the main `.tf` files when changing environments
+
+## Auto-loaded tfvars
+- `terraform.tfvars` — auto-loaded if present
+- `*.auto.tfvars` — auto-loaded if present
+- All others require `-var-file="filename"`

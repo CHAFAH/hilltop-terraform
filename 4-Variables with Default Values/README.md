@@ -1,54 +1,70 @@
-# Terraform Variables
+# 4 - Variables with Default Values
 
-In Terraform, variables are used to define and input values that can be used throughout your Terraform configuration. They allow you to parameterize your infrastructure code and make it more flexible and reusable.
+## What You Learn
+- Declare variables with the `variable` block
+- Use default values so you don't have to pass them every time
+- Reference variables with `var.<name>`
 
-## Major use cases of Variables
+## Files
+- `provider.tf` — AWS provider
+- `variables.tf` — Variable declarations with defaults
+- `ec2.tf` — Resource referencing variables
 
-- **Reusability**: Variables enable you to define values that can be reused across multiple resources and modules. By centralizing values in variablaes, you can avoid duplicating code and easily make changes to values in a single location.
+## Steps
 
-- **Flexibility**: With variables, you can make your Terraform configurations more flexible. By allowing users to input values when running Terraform, you can customize deployments for different environments or scenarios without modifying the underlying code.
+### 1. `variables.tf` — Declare variables:
 
-- **Maintainability**: Variables contribute to the maintainability of your infrastructure code. By using variables, you can separate configuration data from the code itself, making it easier to understand, update, and troubleshoot your Terraform configurations.
-
-- **Collaboration**: Variables facilitate collaboration by providing a standardized way to define and share inputs among team members. You can define variables with clear descriptions and default values, making it easier for others to understand and use your code.
-
-- **Dynamic configurations**: Variables allow you to create dynamic and conditional configurations. You can use variables in conjunction with conditional expressions and functions to create configurations that adapt based on different conditions or inputs.
-
-## Example `variable.tf` configuration file
-
-```sh
-
-variable "region" {
-  description = "The AWS region where resources will be provisioned."
-  type        = string
-  default     = "us-west-2"
+```hcl
+variable "ami_id" {
+  default = "ami-0c02fb55956c7d316"
 }
 
 variable "instance_type" {
-  description = "The EC2 instance type for the web server."
-  type        = string
-  default     = "t3.micro"
+  default = "t2.micro"
 }
 
-variable "environment" {
-  description = "The environment where resources are being deployed."
-  type        = string
-  default     = "dev"
+variable "ec2_name_tag" {
+  default = "my-terraform-instance"
 }
-
-variable "availability_zones" {
-  description = "A list of availability zones to distribute resources."
-  type        = list(string)
-  default     = ["us-west-2a", "us-west-2b", "us-west-2c"]
-}
-
-
 ```
----
 
-In this example:
+### 2. `ec2.tf` — Use the variables:
 
-- The variable blocks define four variables with different data types (`string` and `list`).
-- Each variable has a description that explains its purpose.
-- The `default` attribute sets the default value for the variable, which will be used if no other value is provided.
--  Users can override these default values by specifying new values through command-line flags, environment variables, or input files when running Terraform commands
+```hcl
+resource "aws_instance" "instance" {
+  ami           = var.ami_id
+  instance_type = var.instance_type
+  tags = {
+    Name = var.ec2_name_tag
+  }
+}
+```
+
+### 3. `provider.tf`:
+
+```hcl
+provider "aws" {
+  region  = "us-east-1"
+  profile = "default"
+}
+```
+
+### 4. Run:
+
+```bash
+terraform init
+terraform plan
+terraform apply
+terraform destroy
+```
+
+### Override defaults at runtime:
+
+```bash
+terraform apply -var="instance_type=t3.medium" -var="ec2_name_tag=prod-server"
+```
+
+## Why Use Variables
+- Reusable configurations
+- Change values without editing resource blocks
+- Different values per environment (dev, staging, prod)
