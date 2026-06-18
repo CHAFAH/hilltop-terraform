@@ -104,6 +104,20 @@ State saved in S3 with DynamoDB locking.
 
 ### Step 1: Create S3 Bucket
 
+**Option A: AWS Console (Manual)**
+
+1. Go to **AWS Console → S3 → Create bucket**
+2. Fill in:
+   - Bucket name: `my-terraform-state-bucket` (must be globally unique)
+   - Region: `us-east-1`
+   - Object Ownership: ACLs disabled
+   - Block all public access: ✅ (keep checked)
+   - Bucket Versioning: ✅ **Enable**
+   - Encryption: SSE-S3 (default)
+3. Click **Create bucket**
+
+**Option B: AWS CLI**
+
 ```bash
 aws s3api create-bucket \
   --bucket my-terraform-state-bucket \
@@ -117,6 +131,20 @@ aws s3api put-bucket-versioning \
 
 ### Step 2: Create DynamoDB Table for Locking
 
+**Option A: AWS Console (Manual)**
+
+1. Go to **AWS Console → DynamoDB → Create table**
+2. Fill in:
+   - Table name: `terraform-lock`
+   - Partition key: `LockID` (type: **String**)
+3. Table settings: **Customize settings**
+   - Read/write capacity: **On-demand**
+4. Click **Create table**
+
+> ⚠️ The partition key MUST be exactly `LockID` (capital L, capital ID). Terraform looks for this exact key name.
+
+**Option B: AWS CLI**
+
 ```bash
 aws dynamodb create-table \
   --table-name terraform-lock \
@@ -125,8 +153,6 @@ aws dynamodb create-table \
   --billing-mode PAY_PER_REQUEST \
   --region us-east-1
 ```
-
-> The table MUST have a primary key named `LockID` (String type).
 
 ### Step 3: Configure Backend in Terraform
 
