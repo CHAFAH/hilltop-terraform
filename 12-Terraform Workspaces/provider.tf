@@ -1,6 +1,13 @@
+terraform {
+  required_version = ">= 1.0"
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+}
 
-#Below is the provider which helps in connecting with AWS account
 provider "aws" {
-  region = ""
-  profile = ""
+  region = "us-east-1"
 }

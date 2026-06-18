@@ -1,8 +1,11 @@
-#Below are the list of variables for resource creation
-
 variable "ami_id" {
-  default = ""
+  description = "AMI ID"
+  type        = string
+  default     = "ami-0c02fb55956c7d316"
 }
+
 variable "instance_type" {
-  default = ""
+  description = "Instance type"
+  type        = string
+  default     = "t2.micro"
 }

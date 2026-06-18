@@ -1,10 +1,17 @@
-# Below is the variables blocks
 variable "ami_id" {
-  default = ""
+  description = "AMI ID for the EC2 instance"
+  type        = string
+  default     = "ami-0c02fb55956c7d316"
 }
+
 variable "instance_type" {
-  default = ""
+  description = "EC2 instance type"
+  type        = string
+  default     = "t2.micro"
 }
-variable "ec2_name_tag" {
-  default = ""
+
+variable "instance_name" {
+  description = "Name tag for the EC2 instance"
+  type        = string
+  default     = "my-terraform-instance"
 }

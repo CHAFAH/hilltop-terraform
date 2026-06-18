@@ -1,11 +1,9 @@
-#Below is teh resource block to create EC2 instance
-resource "aws_instance" "prod-instance" {
+resource "aws_instance" "server" {
+  ami           = var.ami_id
+  instance_type = var.instance_type
+  count         = var.instance_count
 
-    ami = 
-    instance_type = 
-
-    tags = {
-        Name = 
-    }
-  
+  tags = {
+    Name = "${var.instance_name}-${count.index + 1}"
+  }
 }

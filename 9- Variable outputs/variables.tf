@@ -1,20 +1,17 @@
 variable "ami_id" {
-
-    type = string
-    description = "This is the ami for the instance"
-    default = ""
-  
+  description = "AMI ID for the instance"
+  type        = string
+  default     = "ami-0c02fb55956c7d316"
 }
 
 variable "instance_type" {
-    type = string
-    description = "This is the type of the instance"
-    default = ""
+  description = "Instance type"
+  type        = string
+  default     = "t2.micro"
 }
 
-
-variable "instance_tag" {
-    type = string
-    description = "This is the tag for the instance"
-    default = "wanda-test-instance"
+variable "instance_name" {
+  description = "Name tag for the instance"
+  type        = string
+  default     = "output-demo-instance"
 }
